@@ -251,9 +251,9 @@ func notifToMessage(notif *Notification) (msg *admMessage, err error) {
 	for k, v := range notif.Data {
 		switch k {
 		case "msggroup":
-			msg.MsgGroup = v
+			msg.MsgGroup = v.(string)
 		case "ttl":
-			ttl, err := strconv.ParseInt(v, 10, 64)
+			ttl, err := strconv.ParseInt(v.(string), 10, 64)
 			if err != nil {
 				continue
 			}

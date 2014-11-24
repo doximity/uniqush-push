@@ -34,9 +34,9 @@ import (
 	"sync/atomic"
 	"time"
 
+	. "github.com/rafaelbandeira3/uniqush-push/push"
 	"github.com/uniqush/cache"
 	"github.com/uniqush/connpool"
-	. "github.com/rafaelbandeira3/uniqush-push/push"
 )
 
 const (
@@ -256,7 +256,7 @@ func (self *apnsPushService) Push(psp *PushServiceProvider, dpQueue <-chan *Deli
 	unixNow := uint32(time.Now().Unix())
 	expiry := unixNow + 60*60
 	if ttlstr, ok := notif.Data["ttl"]; ok {
-		ttl, err := strconv.ParseUint(ttlstr, 10, 32)
+		ttl, err := strconv.ParseUint(ttlstr.(string), 10, 32)
 		if err == nil {
 			expiry = unixNow + uint32(ttl)
 		}
@@ -759,9 +759,9 @@ func toAPNSPayload(n *Notification) ([]byte, error) {
 		case "loc-key":
 			alert[k] = v
 		case "loc-args":
-			alert[k] = parseList(v)
+			alert[k] = parseList(v.(string))
 		case "badge":
-			b, err := strconv.Atoi(v)
+			b, err := strconv.Atoi(v.(string))
 			if err != nil {
 				continue
 			} else {

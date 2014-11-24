@@ -117,7 +117,7 @@ func (p *c2dmPushService) singlePush(psp *PushServiceProvider, dp *DeliveryPoint
 	}
 	data.Set("registration_id", regid)
 	if mid, ok := msg["id"]; ok {
-		data.Set("collapse_key", mid)
+		data.Set("collapse_key", mid.(string))
 	} else {
 		now := time.Now().UTC()
 		ckey := fmt.Sprintf("%v-%v-%v-%v-%v",
@@ -138,7 +138,7 @@ func (p *c2dmPushService) singlePush(psp *PushServiceProvider, dp *DeliveryPoint
 		case "id":
 			continue
 		default:
-			data.Set("data."+k, v)
+			data.Set("data."+k, v.(string))
 		}
 	}
 

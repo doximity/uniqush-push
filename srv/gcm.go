@@ -144,7 +144,7 @@ func (self *gcmPushService) multicast(psp *PushServiceProvider, dpList []*Delive
 	data.DelayWhileIdle = false
 
 	if mgroup, ok := msg["msggroup"]; ok {
-		data.CollapseKey = mgroup
+		data.CollapseKey = mgroup.(string)
 	} else {
 		data.CollapseKey = ""
 	}
@@ -157,7 +157,7 @@ func (self *gcmPushService) multicast(psp *PushServiceProvider, dpList []*Delive
 		case "msggroup":
 			continue
 		case "ttl":
-			ttl, err := strconv.ParseUint(v, 10, 32)
+			ttl, err := strconv.ParseUint(v.(string), 10, 32)
 			if err != nil {
 				continue
 			}
