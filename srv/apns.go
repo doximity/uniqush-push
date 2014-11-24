@@ -36,7 +36,7 @@ import (
 
 	"github.com/uniqush/cache"
 	"github.com/uniqush/connpool"
-	. "github.com/uniqush/uniqush-push/push"
+	. "github.com/rafaelbandeira3/uniqush-push/push"
 )
 
 const (

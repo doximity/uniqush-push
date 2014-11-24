@@ -18,7 +18,7 @@
 package db
 
 import (
-	. "github.com/uniqush/uniqush-push/push"
+	. "github.com/rafaelbandeira3/uniqush-push/push"
 )
 
 // In general, an push database stores the relationships between

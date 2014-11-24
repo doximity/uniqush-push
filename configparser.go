@@ -19,9 +19,9 @@ package main
 
 import (
 	"code.google.com/p/goconf/conf"
+	. "github.com/rafaelbandeira3/uniqush-push/db"
+	. "github.com/rafaelbandeira3/uniqush-push/push"
 	. "github.com/uniqush/log"
-	. "github.com/uniqush/uniqush-push/db"
-	. "github.com/uniqush/uniqush-push/push"
 	"io"
 	"os"
 	"strings"

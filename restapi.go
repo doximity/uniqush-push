@@ -29,8 +29,8 @@ import (
 	"sync"
 	"time"
 
+	. "github.com/rafaelbandeira3/uniqush-push/push"
 	"github.com/uniqush/log"
-	. "github.com/uniqush/uniqush-push/push"
 )
 
 type RestAPI struct {

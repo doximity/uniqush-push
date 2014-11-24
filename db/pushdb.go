@@ -20,7 +20,7 @@ package db
 import (
 	"errors"
 	"fmt"
-	. "github.com/uniqush/uniqush-push/push"
+	. "github.com/rafaelbandeira3/uniqush-push/push"
 	"sync"
 )
 
