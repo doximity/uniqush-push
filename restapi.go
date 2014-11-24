@@ -243,7 +243,24 @@ func (self *RestAPI) pushNotification(reqId string, kv map[string]string, perdp 
 				}
 			}
 		default:
-			notif.Data[k] = v
+			r := regexp.MustCompile("[^\\[\\]]+")
+			parts := r.FindAllString(k, -1)
+			var val interface{} = v
+
+			if len(parts) == 2 {
+				var obj map[string]string
+
+				if notif.Data[parts[0]] == nil {
+					obj = make(map[string]string)
+				} else {
+					obj = notif.Data[parts[0]].(map[string]string)
+				}
+
+				obj[parts[1]] = v
+				val = obj
+			}
+
+			notif.Data[parts[0]] = val
 		}
 	}
 

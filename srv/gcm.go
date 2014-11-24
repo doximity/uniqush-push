@@ -23,12 +23,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	. "github.com/uniqush/uniqush-push/push"
 	"io/ioutil"
 	"net"
 	"net/http"
 	"strconv"
 	"time"
-	. "github.com/uniqush/uniqush-push/push"
 )
 
 const (
@@ -102,11 +102,11 @@ func (p *gcmPushService) Name() string {
 }
 
 type gcmData struct {
-	RegIDs         []string          `json:"registration_ids"`
-	CollapseKey    string            `json:"collapse_key,omitempty"`
-	Data           map[string]string `json:"data"`
-	DelayWhileIdle bool              `json:"delay_while_idle,omitempty"`
-	TimeToLive     uint              `json:"time_to_live,omitempty"`
+	RegIDs         []string               `json:"registration_ids"`
+	CollapseKey    string                 `json:"collapse_key,omitempty"`
+	Data           map[string]interface{} `json:"data"`
+	DelayWhileIdle bool                   `json:"delay_while_idle,omitempty"`
+	TimeToLive     uint                   `json:"time_to_live,omitempty"`
 }
 
 func (d *gcmData) String() string {
@@ -150,7 +150,7 @@ func (self *gcmPushService) multicast(psp *PushServiceProvider, dpList []*Delive
 	}
 
 	nr_elem := len(msg)
-	data.Data = make(map[string]string, nr_elem)
+	data.Data = make(map[string]interface{}, nr_elem)
 
 	for k, v := range msg {
 		switch k {

@@ -234,10 +234,10 @@ func requestToken(psp *PushServiceProvider) error {
 }
 
 type admMessage struct {
-	Data     map[string]string `json:"data"`
-	MsgGroup string            `json:"consolidationKey,omitempty"`
-	TTL      int64             `json:"expiresAfter,omitempty"`
-	MD5      string            `json:"md5,omitempty"`
+	Data     map[string]interface{} `json:"data"`
+	MsgGroup string                 `json:"consolidationKey,omitempty"`
+	TTL      int64                  `json:"expiresAfter,omitempty"`
+	MD5      string                 `json:"md5,omitempty"`
 }
 
 func notifToMessage(notif *Notification) (msg *admMessage, err error) {
@@ -247,7 +247,7 @@ func notifToMessage(notif *Notification) (msg *admMessage, err error) {
 	}
 
 	msg = new(admMessage)
-	msg.Data = make(map[string]string, len(notif.Data))
+	msg.Data = make(map[string]interface{}, len(notif.Data))
 	for k, v := range notif.Data {
 		switch k {
 		case "msggroup":

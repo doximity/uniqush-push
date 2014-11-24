@@ -22,7 +22,7 @@ import (
 )
 
 type Notification struct {
-	Data map[string]string
+	Data map[string]interface{}
 }
 
 func (self *Notification) String() string {
@@ -31,13 +31,13 @@ func (self *Notification) String() string {
 }
 func NewEmptyNotification() *Notification {
 	n := new(Notification)
-	n.Data = make(map[string]string, 10)
+	n.Data = make(map[string]interface{}, 10)
 	return n
 }
 
 func (n *Notification) Clone() *Notification {
 	ret := new(Notification)
-	ret.Data = make(map[string]string, len(n.Data))
+	ret.Data = make(map[string]interface{}, len(n.Data))
 	for k, v := range n.Data {
 		ret.Data[k] = v
 	}
