@@ -202,26 +202,28 @@ func Run(conf, version string) error {
 	if err != nil {
 		return err
 	}
-	dbconf, err := LoadDatabaseConfig(c)
-	if err != nil {
-		return err
-	}
-	addr, err := LoadRestAddr(c)
-	if err != nil {
-		return err
-	}
-	psm := GetPushServiceManager()
+	// dbconf, err := LoadDatabaseConfig(c)
+	// if err != nil {
+	// 	return err
+	// }
+	// addr, err := LoadRestAddr(c)
+	// if err != nil {
+	// 	return err
+	// }
+	// psm := GetPushServiceManager()
 
-	db, err := NewPushDatabaseWithoutCache(dbconf)
-	if err != nil {
-		return err
-	}
+	// db, err := NewPushDatabaseWithoutCache(dbconf)
+	// if err != nil {
+	// 	return err
+	// }
 
-	backend := NewPushBackEnd(psm, db, loggers)
-	rest := NewRestAPI(psm, loggers, version, backend)
+	// backend := NewPushBackEnd(psm, db, loggers)
+	// rest := NewRestAPI(psm, loggers, version, backend)
+	rest := NewRestfulApi(loggers)
+
 	stopChan := make(chan bool)
-	go rest.signalSetup()
-	go rest.Run(addr, stopChan)
+	// go rest.signalSetup()
+	go rest.Run(":9898", stopChan)
 	<-stopChan
 	return nil
 }
