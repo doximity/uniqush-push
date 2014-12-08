@@ -23,7 +23,7 @@ import (
 	"strconv"
 	"strings"
 
-	redis "github.com/monnand/goredis"
+	redis "github.com/rafaelbandeira3/goredis"
 	. "github.com/uniqush/uniqush-push/push"
 )
 
