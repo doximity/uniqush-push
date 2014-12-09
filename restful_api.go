@@ -26,7 +26,7 @@ func NewRestfulApi(loggers []log.Logger, legacyRestApi *RestAPI) *RestfulApi {
 	api.AddRoute("DELETE", "/push_service_providers/{service_alias}/{service_type}", api.RemovePushServiceProvider)
 	api.AddRoute("POST", "/subscribers", api.AddDeliveryPointToService)
 	api.AddRoute("DELETE", "/subscribers/{subscription_alias}", RemoveDeliveryPointFromService)
-	api.AddRoute("POST", "/push", PushNotification)
+	api.AddRoute("POST", "/push_notifications", api.PushNotification)
 
 	api.legacyRestApi = legacyRestApi
 
@@ -66,12 +66,26 @@ func (rest *RestfulApi) AddDeliveryPointToService(w http.ResponseWriter, r *http
 }
 
 func RemoveDeliveryPointFromService(w http.ResponseWriter, r *http.Request) {
+
 }
 
-func PushNotification(w http.ResponseWriter, r *http.Request) {
+func (rest *RestfulApi) PushNotification(w http.ResponseWriter, r *http.Request) {
+	pushNotification := new(PushNotificationResource)
+	readJson(r, pushNotification)
+
+	rest.pushNotificationOnLegacy(*pushNotification, w, r)
+
+	respondJson(w, pushNotification)
 }
 
 /* Legacy integration */
+
+func (rest *RestfulApi) pushNotificationOnLegacy(pushNotification PushNotificationResource, w http.ResponseWriter, r *http.Request) {
+	logLevel := log.LOGLEVEL_INFO
+	weblogger := log.NewLogger(w, "[Push]", logLevel)
+	logger := log.MultiLogger(weblogger, rest.legacyRestApi.loggers[LOGGER_PUSH])
+	rest.legacyRestApi.pushNotification(UniquePushNotificationId(), pushNotification.ToKeyValue(), make(map[string][]string, 0), logger, r.RemoteAddr)
+}
 
 func (rest *RestfulApi) subscribeOnLegacyApi(subs SubscriptionResource, w http.ResponseWriter, r *http.Request) {
 	logLevel := log.LOGLEVEL_INFO
