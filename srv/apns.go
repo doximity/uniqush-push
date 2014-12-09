@@ -107,6 +107,13 @@ func (self *apnsPushService) SetErrorReportChan(errChan chan<- error) {
 	return
 }
 
+func loadX509(psp *PushServiceProvider) (tls.Certificate, error) {
+	cert := bytes.NewBufferString(psp.FixedData["cert"])
+	key := bytes.NewBufferString(psp.FixedData["key"])
+	certificate, err := tls.X509KeyPair(cert.Bytes(), key.Bytes())
+	return certificate, err
+}
+
 func (p *apnsPushService) BuildPushServiceProviderFromMap(kv map[string]string, psp *PushServiceProvider) error {
 	if service, ok := kv["service"]; ok {
 		psp.FixedData["service"] = service
@@ -126,7 +133,7 @@ func (p *apnsPushService) BuildPushServiceProviderFromMap(kv map[string]string, 
 		return errors.New("NoPrivateKey")
 	}
 
-	_, err := tls.LoadX509KeyPair(psp.FixedData["cert"], psp.FixedData["key"])
+	_, err := loadX509(psp)
 	if err != nil {
 		return err
 	}
@@ -401,7 +408,7 @@ type apnsConnManager struct {
 
 func newAPNSConnManager(psp *PushServiceProvider, resultChan chan *apnsResult) *apnsConnManager {
 	manager := new(apnsConnManager)
-	manager.cert, manager.err = tls.LoadX509KeyPair(psp.FixedData["cert"], psp.FixedData["key"])
+	manager.cert, manager.err = loadX509(psp)
 	if manager.err != nil {
 		return manager
 	}
@@ -555,7 +562,7 @@ func clearRequest(req *pushRequest, resChan chan *apnsResult) {
 }
 
 func connectFeedback(psp *PushServiceProvider) (net.Conn, error) {
-	cert, err := tls.LoadX509KeyPair(psp.FixedData["cert"], psp.FixedData["key"])
+	cert, err := loadX509(psp)
 	if err != nil {
 		return nil, NewBadPushServiceProviderWithDetails(psp, err.Error())
 	}
