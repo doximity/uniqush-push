@@ -49,6 +49,7 @@ func (rest *RestfulApi) AddPushServiceProvider(w http.ResponseWriter, r *http.Re
 }
 
 func (rest *RestfulApi) RemovePushServiceProvider(w http.ResponseWriter, r *http.Request) {
+	//TODO this is not working
 	vars := mux.Vars(r)
 	alias := vars["service_alias"]
 	service_type := vars["service_type"]
