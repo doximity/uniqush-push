@@ -1,9 +1,9 @@
 package rest
 
 type PushServiceProviderResource struct {
-	Alias  string            `json: "alias"`
-	Type   string            `json: "type"`
-	Access map[string]string `json: "access"`
+	Alias  string            `json:"alias"`
+	Type   string            `json:"type"`
+	Access map[string]string `json:"access"`
 }
 
 func (serv PushServiceProviderResource) ToKeyValue() map[string]string {
