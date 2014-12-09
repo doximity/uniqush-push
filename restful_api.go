@@ -81,24 +81,15 @@ func (rest *RestfulApi) PushNotification(w http.ResponseWriter, r *http.Request)
 /* Legacy integration */
 
 func (rest *RestfulApi) pushNotificationOnLegacy(pushNotification PushNotificationResource, w http.ResponseWriter, r *http.Request) {
-	logLevel := log.LOGLEVEL_INFO
-	weblogger := log.NewLogger(w, "[Push]", logLevel)
-	logger := log.MultiLogger(weblogger, rest.legacyRestApi.loggers[LOGGER_PUSH])
-	rest.legacyRestApi.pushNotification(UniquePushNotificationId(), pushNotification.ToKeyValue(), make(map[string][]string, 0), logger, r.RemoteAddr)
+	rest.legacyRestApi.pushNotification(UniquePushNotificationId(), pushNotification.ToKeyValue(), make(map[string][]string, 0), rest.legacyRestApi.loggers[LOGGER_PUSH], r.RemoteAddr)
 }
 
 func (rest *RestfulApi) subscribeOnLegacyApi(subs SubscriptionResource, w http.ResponseWriter, r *http.Request) {
-	logLevel := log.LOGLEVEL_INFO
-	weblogger := log.NewLogger(w, "[Subscribe]", logLevel)
-	logger := log.MultiLogger(weblogger, rest.legacyRestApi.loggers[LOGGER_SUB])
-	rest.legacyRestApi.changeSubscription(subs.ToKeyValue(), logger, r.RemoteAddr, true)
+	rest.legacyRestApi.changeSubscription(subs.ToKeyValue(), rest.legacyRestApi.loggers[LOGGER_SUB], r.RemoteAddr, true)
 }
 
 func (rest *RestfulApi) addPushServiceProviderOnLegacy(serv PushServiceProviderResource, w http.ResponseWriter, r *http.Request) {
-	logLevel := log.LOGLEVEL_INFO
-	weblogger := log.NewLogger(w, "[PushServiceProvider]", logLevel)
-	logger := log.MultiLogger(weblogger, rest.legacyRestApi.loggers[LOGGER_SUB])
-	rest.legacyRestApi.changePushServiceProvider(serv.ToKeyValue(), logger, r.RemoteAddr, true)
+	rest.legacyRestApi.changePushServiceProvider(serv.ToKeyValue(), rest.legacyRestApi.loggers[LOGGER_ADDPSP], r.RemoteAddr, true)
 }
 
 func (rest *RestfulApi) removePushServiceProviderOnLegacy(alias, service_type string, w http.ResponseWriter, r *http.Request) {
