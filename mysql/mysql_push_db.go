@@ -67,8 +67,8 @@ func (db *MySqlPushDb) FindSubscriptionByAlias(alias string) (Subscription, erro
 	return subscription, err
 }
 
-func (db *MySqlPushDb) InsertSubscription(serviceId int, alias string, serviceType string, deviceKey string) (int64, error) {
-	res, err := db.db.Exec(insertSubscription, serviceId, alias, serviceType, deviceKey)
+func (db *MySqlPushDb) insert(stm string, values ...interface{}) (int64, error) {
+	res, err := db.db.Exec(stm, values...)
 	if err != nil {
 		return 0, err
 	}
@@ -79,6 +79,37 @@ func (db *MySqlPushDb) InsertSubscription(serviceId int, alias string, serviceTy
 	}
 
 	return lastId, nil
+}
+
+func (db *MySqlPushDb) InsertSubscription(serviceId int, alias string, serviceType string, deviceKey string) (int64, error) {
+	return db.insert(insertSubscription, serviceId, alias, serviceType, deviceKey)
+}
+
+func (db *MySqlPushDb) InsertService(alias string) (int64, error) {
+	return db.insert(insertService, alias)
+}
+
+func (db *MySqlPushDb) InsertPushServiceProvider(serviceId int, serviceType string, accessKeys ...string) (int64, error) {
+	id, err := db.insert(insertPushServiceProvider, serviceId, serviceType)
+	if err != nil {
+		return 0, err
+	}
+
+	var insertAccessKeys string
+	if serviceType == "apns" {
+		insertAccessKeys = insertApnsAccessKeys
+	}
+	if serviceType == "gcm" {
+		insertAccessKeys = insertGcmAccessKeys
+	}
+
+	args := make([]interface{}, 3)
+	args[0] = id
+	args[1] = accessKeys[0]
+	args[2] = accessKeys[1]
+	_, err = db.insert(insertAccessKeys, args...)
+
+	return id, err
 }
 
 func (db *MySqlPushDb) Close() {

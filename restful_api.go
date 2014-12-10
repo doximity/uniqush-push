@@ -47,7 +47,39 @@ func (rest *RestfulApi) AddPushServiceProvider(w http.ResponseWriter, r *http.Re
 	resource := new(PushServiceProviderResource)
 	readJson(r, resource)
 
-	rest.addPushServiceProviderOnLegacy(*resource, w, r)
+	service, err := rest.db.FindServiceByAlias(resource.Alias)
+	if err != nil {
+		_, err = rest.db.InsertService(resource.Alias)
+
+		if err != nil {
+			w.WriteHeader(422)
+			jsonError := JsonError{Error: fmt.Sprintf("Can't create service %", resource.Alias), GoError: err.Error()}
+			respondJson(w, jsonError)
+			return
+		}
+
+		service, err = rest.db.FindServiceByAlias(resource.Alias)
+		if err != nil {
+			w.WriteHeader(422)
+			jsonError := JsonError{Error: fmt.Sprintf("Can't find service %v", resource.Alias), GoError: err.Error()}
+			respondJson(w, jsonError)
+			return
+		}
+	}
+
+	accessKeys := make([]string, 2)
+	for _, v := range resource.ServiceAccessKeys() {
+		accessKeys = append(accessKeys, v)
+	}
+	id, err := rest.db.InsertPushServiceProvider(service.Id, resource.Type, accessKeys...)
+	if err != nil {
+		w.WriteHeader(422)
+		jsonError := JsonError{Error: fmt.Sprintf("Can't create push service provider for %v", resource.Alias), GoError: err.Error()}
+		respondJson(w, jsonError)
+		return
+	}
+
+	resource.Id = id
 
 	respondJson(w, resource)
 }

@@ -1,6 +1,7 @@
 package rest
 
 type PushServiceProviderResource struct {
+	Id     int64             `json:"id"`
 	Alias  string            `json:"alias"`
 	Type   string            `json:"type"`
 	Access map[string]string `json:"access"`
