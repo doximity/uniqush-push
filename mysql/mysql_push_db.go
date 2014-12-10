@@ -11,8 +11,8 @@ const (
 	insertSubscription        = `INSERT INTO subscriptions (service_id, alias, push_service_provider_type, device_token) VALUES (?, ?, ?, ?)`
 	insertService             = `INSERT INTO services (alias) VALUES (?)`
 	insertPushServiceProvider = `INSERT INTO push_service_providers (service_id, type) VALUES (?, ?)`
-	insertApnsAccessKeys      = `INSERT INTO apns_access_keys (push_service_provider_id, certificate, key) VALUES (?, ?, ?)`
-	insertGcmAccessKeys       = `INSERT INTO gcm_access_keys (push_service_provider_id, project, key) VALUES (?, ?)`
+	insertApnsAccessKeys      = `INSERT INTO apns_access_keys (push_service_provider_id, certificate_pem, key_pem) VALUES (?, ?, ?)`
+	insertGcmAccessKeys       = `INSERT INTO gcm_access_keys (push_service_provider_id, project, api_key) VALUES (?, ?, ?)`
 
 	selectSubscription = `SELECT * FROM subscriptions WHERE alias = ?`
 	selectService      = `SELECT * FROM services WHERE alias = ?`

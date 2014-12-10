@@ -14,15 +14,15 @@ create table push_service_providers (
 create table apns_access_keys (
   `id` int primary key auto_increment,
   `push_service_provider_id` int,
-  `certficate` text,
-  `key` text
+  `certificate_pem` text,
+  `key_pem` text
 );
 
 create table gcm_access_keys (
   `id` int primary key auto_increment,
   `push_service_provider_id` int,
   `project` varchar(240),
-  `key` varchar(240)
+  `api_key` varchar(240)
 );
 
 -- +goose Down
