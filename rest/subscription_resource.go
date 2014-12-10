@@ -1,6 +1,7 @@
 package rest
 
 type SubscriptionResource struct {
+	Id                      int64  `json:"id"`
 	Alias                   string `json:"alias"`
 	PushServiceProviderType string `json:"push_service_provider_type"`
 	ServiceAlias            string `json:"service_alias"`

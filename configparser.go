@@ -20,6 +20,7 @@ package main
 import (
 	"code.google.com/p/goconf/conf"
 	"fmt"
+	"github.com/rafaelbandeira3/uniqush-push/mysql"
 	. "github.com/uniqush/log"
 	. "github.com/uniqush/uniqush-push/db"
 	. "github.com/uniqush/uniqush-push/push"
@@ -220,11 +221,16 @@ func Run(conf, version string) error {
 
 	backend := NewPushBackEnd(psm, db, loggers)
 	legacyRestApi := NewRestAPI(psm, loggers, version, backend)
-	rest := NewRestfulApi(loggers, legacyRestApi)
+	mydb, err := mysql.NewMySqlPushDb(os.Getenv("MYSQL_DATABASE_URL"))
+	if err != nil {
+		return err
+	}
+	rest := NewRestfulApi(mydb, loggers, legacyRestApi)
 
 	stopChan := make(chan bool)
 	// go rest.signalSetup()
 	go rest.Run(fmt.Sprint(":", os.Getenv("PORT")), stopChan)
 	<-stopChan
+	mydb.Close()
 	return nil
 }

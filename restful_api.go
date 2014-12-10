@@ -2,8 +2,10 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
+	. "github.com/rafaelbandeira3/uniqush-push/mysql"
 	. "github.com/rafaelbandeira3/uniqush-push/rest"
 	"github.com/uniqush/log"
 	"net/http"
@@ -14,9 +16,10 @@ type RestfulApi struct {
 	router        *mux.Router
 	loggers       []log.Logger
 	legacyRestApi *RestAPI
+	db            MySqlPushDb
 }
 
-func NewRestfulApi(loggers []log.Logger, legacyRestApi *RestAPI) *RestfulApi {
+func NewRestfulApi(db MySqlPushDb, loggers []log.Logger, legacyRestApi *RestAPI) *RestfulApi {
 	api := new(RestfulApi)
 
 	api.loggers = loggers
@@ -29,6 +32,7 @@ func NewRestfulApi(loggers []log.Logger, legacyRestApi *RestAPI) *RestfulApi {
 	api.AddRoute("POST", "/push_notifications", api.PushNotification)
 
 	api.legacyRestApi = legacyRestApi
+	api.db = db
 
 	return api
 }
@@ -58,12 +62,28 @@ func (rest *RestfulApi) RemovePushServiceProvider(w http.ResponseWriter, r *http
 }
 
 func (rest *RestfulApi) AddDeliveryPointToService(w http.ResponseWriter, r *http.Request) {
-	subscription := new(SubscriptionResource)
-	readJson(r, subscription)
+	resource := new(SubscriptionResource)
+	readJson(r, resource)
 
-	rest.subscribeOnLegacyApi(*subscription, w, r)
+	service, err := rest.db.FindServiceByAlias(resource.ServiceAlias)
+	if err != nil {
+		w.WriteHeader(http.StatusNotFound)
+		jsonError := JsonError{Error: fmt.Sprintf("Service %v not found", resource.ServiceAlias), GoError: err.Error()}
+		respondJson(w, jsonError)
+		return
+	}
 
-	respondJson(w, subscription)
+	id, err := rest.db.InsertSubscription(service.Id, resource.Alias, resource.PushServiceProviderType, resource.DeviceKey)
+	if err != nil {
+		w.WriteHeader(422)
+		jsonError := JsonError{Error: "Can't create subscription", GoError: err.Error()}
+		respondJson(w, jsonError)
+		return
+	}
+
+	resource.Id = id
+
+	respondJson(w, resource)
 }
 
 func RemoveDeliveryPointFromService(w http.ResponseWriter, r *http.Request) {
