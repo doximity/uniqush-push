@@ -131,12 +131,13 @@ func (db *MySqlPushDb) FindPushServiceProvidersFor(service *Service) error {
 	for rows.Next() {
 		psp := new(PushServiceProvider)
 		args := []interface{}{&psp.Id, &psp.Type, &psp.ServiceId}
+		accessKeys := []*sql.NullString{new(sql.NullString), new(sql.NullString), new(sql.NullString), new(sql.NullString)}
 		rawAccessKeys := map[string]*sql.NullString{
-			"project":         new(sql.NullString),
-			"api_key":         new(sql.NullString),
-			"certificate_pem": new(sql.NullString),
-			"key_pem":         new(sql.NullString)}
-		for _, v := range rawAccessKeys {
+			"project":         accessKeys[0],
+			"api_key":         accessKeys[1],
+			"certificate_pem": accessKeys[2],
+			"key_pem":         accessKeys[3]}
+		for _, v := range accessKeys {
 			args = append(args, v)
 		}
 		err := rows.Scan(args...)
