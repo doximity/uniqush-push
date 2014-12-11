@@ -6,6 +6,7 @@ import (
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 	. "github.com/rafaelbandeira3/uniqush-push/mysql"
+	"github.com/rafaelbandeira3/uniqush-push/push"
 	. "github.com/rafaelbandeira3/uniqush-push/rest"
 	"github.com/uniqush/log"
 	"net/http"
@@ -67,11 +68,11 @@ func (rest *RestfulApi) AddPushServiceProvider(w http.ResponseWriter, r *http.Re
 		}
 	}
 
-	accessKeys := make([]string, 2)
+	accessKeys := make([]string, 0, 2)
 	for _, v := range resource.ServiceAccessKeys() {
 		accessKeys = append(accessKeys, v)
 	}
-	id, err := rest.db.InsertPushServiceProvider(service.Id, resource.Type, accessKeys...)
+	id, err := rest.db.InsertPushServiceProvider(service.Id, resource.Type, accessKeys)
 	if err != nil {
 		w.WriteHeader(422)
 		jsonError := JsonError{Error: fmt.Sprintf("Can't create push service provider for %v", resource.Alias), GoError: err.Error()}
@@ -123,12 +124,82 @@ func RemoveDeliveryPointFromService(w http.ResponseWriter, r *http.Request) {
 }
 
 func (rest *RestfulApi) PushNotification(w http.ResponseWriter, r *http.Request) {
-	pushNotification := new(PushNotificationResource)
-	readJson(r, pushNotification)
+	resource := new(PushNotificationResource)
+	readJson(r, resource)
 
-	rest.pushNotificationOnLegacy(*pushNotification, w, r)
+	service, err := rest.db.FindServiceByAlias(resource.ServiceAlias)
+	if err != nil {
+		w.WriteHeader(http.StatusNotFound)
+		jsonError := JsonError{Error: fmt.Sprintf("Service %v not found", resource.ServiceAlias), GoError: err.Error()}
+		respondJson(w, jsonError)
+		return
+	}
 
-	respondJson(w, pushNotification)
+	subscriptions, err := rest.db.FindAllSubscriptionsByAlias(resource.SubscriberAlias)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		jsonError := JsonError{Error: fmt.Sprintf("Can't load subscriptions for %v", resource.SubscriberAlias), GoError: err.Error()}
+		respondJson(w, jsonError)
+		return
+	}
+
+	fmt.Println(" - Found", len(subscriptions), "subscriptions")
+
+	err = rest.db.FindPushServiceProvidersFor(&service)
+	if err != nil {
+		w.WriteHeader(422)
+		jsonError := JsonError{Error: fmt.Sprintf("Can't find push service providers for %v", resource.ServiceAlias), GoError: err.Error()}
+		respondJson(w, jsonError)
+	}
+
+	fmt.Println(" - Found", len(service.Providers), "providers")
+
+	psm := push.GetPushServiceManager()
+	notification := buildNotification(resource)
+	for _, subs := range subscriptions {
+		pushServiceProvider, found := service.ProviderOfType(subs.PushServiceProviderType)
+
+		if !found {
+			continue
+		}
+
+		psp, err := psm.BuildPushServiceProviderFromMap(pushServiceProvider.ToKeyValue())
+		if err != nil {
+			w.WriteHeader(422)
+			jsonError := JsonError{Error: fmt.Sprintf("Can't initialize push service provider %v for %v", pushServiceProvider.Id, service.Alias), GoError: err.Error()}
+			respondJson(w, jsonError)
+			return
+		}
+
+		deliveryPoint, err := psm.BuildDeliveryPointFromMap(subs.ToKeyValue())
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			jsonError := JsonError{Error: fmt.Sprintf("Can't initialize delivery point for subscription %v", subs.Id), GoError: err.Error()}
+			respondJson(w, jsonError)
+			return
+		}
+
+		deliveryPoints := make(chan *push.DeliveryPoint)
+		pushResults := make(chan *push.PushResult)
+
+		go func() {
+			for _ = range pushResults {
+			}
+		}()
+		go func() { psm.Push(psp, deliveryPoints, pushResults, notification) }()
+		deliveryPoints <- deliveryPoint
+		close(deliveryPoints)
+	}
+
+	respondJson(w, resource)
+}
+
+func buildNotification(resource *PushNotificationResource) *push.Notification {
+	notie := push.NewEmptyNotification()
+	for k, v := range resource.Content {
+		notie.Data[k] = v
+	}
+	return notie
 }
 
 /* Legacy integration */

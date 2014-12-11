@@ -18,7 +18,7 @@ func (serv PushServiceProviderResource) ToKeyValue() map[string]string {
 }
 
 func (serv PushServiceProviderResource) ServiceAccessKeys() map[string]string {
-	keys := make(map[string]string, 2)
+	keys := make(map[string]string)
 	if serv.Type == "gcm" {
 		keys["projectid"] = serv.Access["projectid"]
 		keys["apikey"] = serv.Access["apikey"]

@@ -8,14 +8,17 @@ type MySqlPushDb struct {
 }
 
 const (
-	insertSubscription        = `INSERT INTO subscriptions (service_id, alias, push_service_provider_type, device_token) VALUES (?, ?, ?, ?)`
+	insertSubscription        = `INSERT INTO subscriptions (service_id, alias, push_service_provider_type, device_key) VALUES (?, ?, ?, ?)`
 	insertService             = `INSERT INTO services (alias) VALUES (?)`
 	insertPushServiceProvider = `INSERT INTO push_service_providers (service_id, type) VALUES (?, ?)`
 	insertApnsAccessKeys      = `INSERT INTO apns_access_keys (push_service_provider_id, certificate_pem, key_pem) VALUES (?, ?, ?)`
 	insertGcmAccessKeys       = `INSERT INTO gcm_access_keys (push_service_provider_id, project, api_key) VALUES (?, ?, ?)`
 
-	selectSubscription = `SELECT * FROM subscriptions WHERE alias = ?`
-	selectService      = `SELECT * FROM services WHERE alias = ?`
+	selectSubscriptions        = `SELECT * FROM subscriptions WHERE alias = ?`
+	selectService              = `SELECT * FROM services WHERE alias = ?`
+	selectPushServiceProviders = `SELECT psp.id, psp.type, psp.service_id, gcm.project, gcm.api_key, apns.certificate_pem, apns.key_pem FROM push_service_providers AS psp LEFT JOIN gcm_access_keys AS gcm ON gcm.push_service_provider_id = psp.id LEFT JOIN apns_access_keys AS apns ON apns.push_service_provider_id = psp.id WHERE psp.service_id = ?`
+
+	selectSubscriptionsForPushServiceProvider = `SELECT * FROM subscriptions WHERE service_id = ? AND push_service_provider_type = ?`
 )
 
 func NewMySqlPushDb(url string) (MySqlPushDb, error) {
@@ -31,24 +34,123 @@ func NewMySqlPushDb(url string) (MySqlPushDb, error) {
 }
 
 type Service struct {
-	Id    int    `db:"id"`
-	Alias string `db:"alias"`
+	Id        int64  `db:"id"`
+	Alias     string `db:"alias"`
+	Providers []PushServiceProvider
+}
+
+func (serv Service) ProviderOfType(providerType string) (PushServiceProvider, bool) {
+	for _, psp := range serv.Providers {
+		if psp.Type == providerType {
+			return psp, true
+		}
+	}
+	return PushServiceProvider{}, false
 }
 
 type PushServiceProvider struct {
-	Id        int    `db:"id"`
-	Type      string `db:"type"`
-	ServiceId int    `db:"service_id"`
-	Service   *Service
+	Id         int64  `db:"id"`
+	Type       string `db:"type"`
+	ServiceId  int64  `db:"service_id"`
+	Service    *Service
+	AccessKeys map[string]string
+}
+
+func (psp PushServiceProvider) ToKeyValue() map[string]string {
+	m := make(map[string]string, 4)
+	m["service"] = psp.Service.Alias
+	m["pushservicetype"] = psp.Type
+	for k, v := range psp.AccessKeys {
+		m[translateAccessKey(k)] = v
+	}
+	return m
+}
+
+func translateAccessKey(column string) string {
+	switch column {
+	case "project":
+		return "projectid"
+	case "api_key":
+		return "apikey"
+	case "certificate_pem":
+		return "cert"
+	case "key_pem":
+		return "key"
+	default:
+		return ""
+	}
+}
+
+func translateDeviceKey(providerType string) string {
+	switch providerType {
+	case "gcm":
+		return "regid"
+	case "apns":
+		return "devtoken"
+	default:
+		return ""
+	}
 }
 
 type Subscription struct {
-	Id                      int    `db:"id"`
+	Id                      int64  `db:"id"`
 	Alias                   string `db:"alias"`
-	ServiceId               int    `db:"service_id"`
+	ServiceId               int64  `db:"service_id"`
 	PushServiceProviderType string `db:"push_service_provider_type"`
-	DeviceToken             string `db:"device_token"`
+	DeviceKey               string `db:"device_key"`
 	Service                 *Service
+}
+
+func (subs Subscription) ToKeyValue() map[string]string {
+	keys := make(map[string]string)
+	keys["pushservicetype"] = subs.PushServiceProviderType
+	keys["subscriber"] = subs.Alias
+	keys["service"] = "any"
+	keys[translateDeviceKey(subs.PushServiceProviderType)] = subs.DeviceKey
+	return keys
+}
+
+func (db *MySqlPushDb) FindPushServiceProvidersFor(service *Service) error {
+	results := make([]PushServiceProvider, 0, 10)
+
+	rows, err := db.db.Query(selectPushServiceProviders, service.Id)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		psp := new(PushServiceProvider)
+		args := []interface{}{&psp.Id, &psp.Type, &psp.ServiceId}
+		rawAccessKeys := map[string]*sql.NullString{
+			"project":         new(sql.NullString),
+			"api_key":         new(sql.NullString),
+			"certificate_pem": new(sql.NullString),
+			"key_pem":         new(sql.NullString)}
+		for _, v := range rawAccessKeys {
+			args = append(args, v)
+		}
+		err := rows.Scan(args...)
+		if err != nil {
+			return err
+		}
+		psp.Service = service
+		psp.AccessKeys = make(map[string]string, 2)
+		for k, v := range rawAccessKeys {
+			if v.Valid {
+				psp.AccessKeys[k] = v.String
+			}
+		}
+		results = append(results, *psp)
+	}
+
+	err = rows.Err()
+
+	if err == nil {
+		service.Providers = results
+	}
+
+	return err
 }
 
 func (db *MySqlPushDb) FindServiceByAlias(alias string) (Service, error) {
@@ -59,12 +161,26 @@ func (db *MySqlPushDb) FindServiceByAlias(alias string) (Service, error) {
 	return service, err
 }
 
-func (db *MySqlPushDb) FindSubscriptionByAlias(alias string) (Subscription, error) {
-	var subscription Subscription
+func (db *MySqlPushDb) FindAllSubscriptionsByAlias(alias string) ([]Subscription, error) {
+	results := make([]Subscription, 0, 10)
 
-	err := db.db.QueryRow(selectSubscription, alias).Scan(&subscription)
+	rows, err := db.db.Query(selectSubscriptions, alias)
+	if err != nil {
+		return results, err
+	}
+	defer rows.Close()
 
-	return subscription, err
+	for rows.Next() {
+		subs := new(Subscription)
+		err = rows.Scan(&subs.Id, &subs.ServiceId, &subs.Alias, &subs.PushServiceProviderType, &subs.DeviceKey)
+		if err != nil {
+			return results, err
+		}
+
+		results = append(results, *subs)
+	}
+
+	return results, err
 }
 
 func (db *MySqlPushDb) insert(stm string, values ...interface{}) (int64, error) {
@@ -81,7 +197,7 @@ func (db *MySqlPushDb) insert(stm string, values ...interface{}) (int64, error) 
 	return lastId, nil
 }
 
-func (db *MySqlPushDb) InsertSubscription(serviceId int, alias string, serviceType string, deviceKey string) (int64, error) {
+func (db *MySqlPushDb) InsertSubscription(serviceId int64, alias string, serviceType string, deviceKey string) (int64, error) {
 	return db.insert(insertSubscription, serviceId, alias, serviceType, deviceKey)
 }
 
@@ -89,7 +205,7 @@ func (db *MySqlPushDb) InsertService(alias string) (int64, error) {
 	return db.insert(insertService, alias)
 }
 
-func (db *MySqlPushDb) InsertPushServiceProvider(serviceId int, serviceType string, accessKeys ...string) (int64, error) {
+func (db *MySqlPushDb) InsertPushServiceProvider(serviceId int64, serviceType string, accessKeys []string) (int64, error) {
 	id, err := db.insert(insertPushServiceProvider, serviceId, serviceType)
 	if err != nil {
 		return 0, err
