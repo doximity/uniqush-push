@@ -98,7 +98,7 @@ func (rest *RestfulApi) AddDeliveryPointToService(w http.ResponseWriter, r *http
 		return
 	}
 
-	id, err := rest.db.InsertSubscription(service.Id, resource.Alias, resource.PushServiceProviderType, resource.DeviceKey)
+	id, err := rest.db.UpsertSubscriptionFor(service, resource.Alias, resource.PushServiceProviderType, resource.DeviceKey)
 	if err != nil {
 		w.WriteHeader(422)
 		jsonError := JsonError{Error: "Can't create subscription", GoError: err.Error()}

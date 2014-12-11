@@ -15,9 +15,10 @@ const (
 	insertApnsAccessKeys      = `INSERT INTO apns_access_keys (push_service_provider_id, certificate_pem, key_pem) VALUES (?, ?, ?)`
 	insertGcmAccessKeys       = `INSERT INTO gcm_access_keys (push_service_provider_id, project, api_key) VALUES (?, ?, ?)`
 
-	selectSubscriptions        = `SELECT * FROM subscriptions WHERE alias = ? AND service_id = ?`
-	selectService              = `SELECT * FROM services WHERE alias = ?`
-	selectPushServiceProviders = `SELECT psp.id, psp.type, psp.service_id, gcm.project, gcm.api_key, apns.certificate_pem, apns.key_pem FROM push_service_providers AS psp LEFT JOIN gcm_access_keys AS gcm ON gcm.push_service_provider_id = psp.id LEFT JOIN apns_access_keys AS apns ON apns.push_service_provider_id = psp.id WHERE psp.service_id = ?`
+	selectSubscriptions         = `SELECT * FROM subscriptions WHERE alias = ? AND service_id = ?`
+	findSubscriptionByDeviceKey = `SELECT id FROM subscriptions WHERE device_key = ?`
+	selectService               = `SELECT * FROM services WHERE alias = ?`
+	selectPushServiceProviders  = `SELECT psp.id, psp.type, psp.service_id, gcm.project, gcm.api_key, apns.certificate_pem, apns.key_pem FROM push_service_providers AS psp LEFT JOIN gcm_access_keys AS gcm ON gcm.push_service_provider_id = psp.id LEFT JOIN apns_access_keys AS apns ON apns.push_service_provider_id = psp.id WHERE psp.service_id = ?`
 
 	selectSubscriptionsForPushServiceProvider = `SELECT * FROM subscriptions WHERE service_id = ? AND push_service_provider_type = ?`
 )
@@ -207,8 +208,15 @@ func (db *MySqlPushDb) insert(stm string, values ...interface{}) (int64, error) 
 	return lastId, nil
 }
 
-func (db *MySqlPushDb) InsertSubscription(serviceId int64, alias string, serviceType string, deviceKey string) (int64, error) {
-	return db.insert(insertSubscription, serviceId, alias, serviceType, deviceKey)
+func (db *MySqlPushDb) UpsertSubscriptionFor(service Service, alias string, serviceType string, deviceKey string) (int64, error) {
+	var id int64
+	err := db.db.QueryRow(findSubscriptionByDeviceKey, deviceKey).Scan(&id)
+
+	if err == sql.ErrNoRows {
+		return db.insert(insertSubscription, service.Id, alias, serviceType, deviceKey)
+	}
+
+	return id, err
 }
 
 func (db *MySqlPushDb) InsertService(alias string) (int64, error) {
@@ -241,32 +249,3 @@ func (db *MySqlPushDb) InsertPushServiceProvider(serviceId int64, serviceType st
 func (db *MySqlPushDb) Close() {
 	db.db.Close()
 }
-
-//func (db *MySqlPushDb) RemovePushServiceProviderFromService(service string, push_service_provider *PushServiceProvider) error {
-//	return nil
-//}
-//
-//func (db *MySqlPushDb) AddPushServiceProviderToService(serviceAlias string, push_service_provider *PushServiceProvider) error {
-//	var err error
-//	var service Service
-//	return nil
-//}
-//
-//func (db *MySqlPushDb) ModifyPushServiceProvider(psp *PushServiceProvider) error {
-//	return nil
-//}
-//func (db *MySqlPushDb) AddDeliveryPointToService(service string, subscriber string, delivery_point *DeliveryPoint) (*PushServiceProvider, error) {
-//	return nil, nil
-//}
-//func (db *MySqlPushDb) RemoveDeliveryPointFromService(service string, subscriber string, delivery_point *DeliveryPoint) error {
-//	return nil
-//}
-//func (db *MySqlPushDb) ModifyDeliveryPoint(dp *DeliveryPoint) error {
-//	return nil
-//}
-//func (db *MySqlPushDb) GetPushServiceProviderDeliveryPointPairs(service string, subscriber string) ([]PushServiceProviderDeliveryPointPair, error) {
-//	return nil, nil
-//}
-//func (db *MySqlPushDb) FlushCache() error {
-//	return nil
-//}
