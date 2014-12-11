@@ -143,16 +143,12 @@ func (rest *RestfulApi) PushNotification(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	fmt.Println(" - Found", len(subscriptions), "subscriptions")
-
 	err = rest.db.FindPushServiceProvidersFor(&service)
 	if err != nil {
 		w.WriteHeader(422)
 		jsonError := JsonError{Error: fmt.Sprintf("Can't find push service providers for %v", resource.ServiceAlias), GoError: err.Error()}
 		respondJson(w, jsonError)
 	}
-
-	fmt.Println(" - Found", len(service.Providers), "providers")
 
 	psm := push.GetPushServiceManager()
 	notification := buildNotification(resource)
