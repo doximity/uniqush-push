@@ -129,7 +129,7 @@ func (rest *RestfulApi) PushNotification(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	subscriptions, err := rest.db.FindAllSubscriptionsByAlias(resource.SubscriberAlias)
+	subscriptions, err := rest.db.FindAllSubscriptionsByAliasAndServiceId(resource.SubscriberAlias, service.Id)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		jsonError = JsonError{Error: fmt.Sprintf("Can't load subscriptions for %v", resource.SubscriberAlias), GoError: err.Error()}

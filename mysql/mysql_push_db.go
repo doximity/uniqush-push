@@ -14,7 +14,7 @@ const (
 	insertApnsAccessKeys      = `INSERT INTO apns_access_keys (push_service_provider_id, certificate_pem, key_pem) VALUES (?, ?, ?)`
 	insertGcmAccessKeys       = `INSERT INTO gcm_access_keys (push_service_provider_id, project, api_key) VALUES (?, ?, ?)`
 
-	selectSubscriptions        = `SELECT * FROM subscriptions WHERE alias = ?`
+	selectSubscriptions        = `SELECT * FROM subscriptions WHERE alias = ? AND service_id = ?`
 	selectService              = `SELECT * FROM services WHERE alias = ?`
 	selectPushServiceProviders = `SELECT psp.id, psp.type, psp.service_id, gcm.project, gcm.api_key, apns.certificate_pem, apns.key_pem FROM push_service_providers AS psp LEFT JOIN gcm_access_keys AS gcm ON gcm.push_service_provider_id = psp.id LEFT JOIN apns_access_keys AS apns ON apns.push_service_provider_id = psp.id WHERE psp.service_id = ?`
 
@@ -161,10 +161,10 @@ func (db *MySqlPushDb) FindServiceByAlias(alias string) (Service, error) {
 	return service, err
 }
 
-func (db *MySqlPushDb) FindAllSubscriptionsByAlias(alias string) ([]Subscription, error) {
+func (db *MySqlPushDb) FindAllSubscriptionsByAliasAndServiceId(alias string, serviceId int64) ([]Subscription, error) {
 	results := make([]Subscription, 0, 10)
 
-	rows, err := db.db.Query(selectSubscriptions, alias)
+	rows, err := db.db.Query(selectSubscriptions, alias, serviceId)
 	if err != nil {
 		return results, err
 	}
