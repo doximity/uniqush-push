@@ -173,13 +173,10 @@ func (rest *RestfulApi) PushNotification(w http.ResponseWriter, r *http.Request)
 		pushResults := make(chan *push.PushResult)
 
 		go func() {
-			jsonError := JsonError{}
 			success := true
 			for result := range pushResults {
 				if result.IsError() {
-					if success {
-						success = false
-					}
+					success = false
 					jsonError.AddError(result.Error())
 				}
 			}
