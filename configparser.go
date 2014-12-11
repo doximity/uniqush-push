@@ -196,36 +196,11 @@ func LoadRestAddr(c *conf.ConfigFile) (string, error) {
 }
 
 func Run(conf, version string) error {
-	c, err := OpenConfig(conf)
-	if err != nil {
-		return err
-	}
-	loggers, err := LoadLoggers(c)
-	if err != nil {
-		return err
-	}
-	dbconf, err := LoadDatabaseConfig(c)
-	if err != nil {
-		return err
-	}
-	// addr, err := LoadRestAddr(c)
-	// if err != nil {
-	// 	return err
-	// }
-	psm := GetPushServiceManager()
-
-	db, err := NewPushDatabaseWithoutCache(dbconf)
-	if err != nil {
-		return err
-	}
-
-	backend := NewPushBackEnd(psm, db, loggers)
-	legacyRestApi := NewRestAPI(psm, loggers, version, backend)
 	mydb, err := mysql.NewMySqlPushDb(os.Getenv("MYSQL_DATABASE_URL"))
 	if err != nil {
 		return err
 	}
-	rest := NewRestfulApi(mydb, loggers, legacyRestApi)
+	rest := NewRestfulApi(mydb)
 
 	stopChan := make(chan bool)
 	// go rest.signalSetup()

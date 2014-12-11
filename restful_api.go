@@ -8,22 +8,17 @@ import (
 	. "github.com/rafaelbandeira3/uniqush-push/mysql"
 	"github.com/rafaelbandeira3/uniqush-push/push"
 	. "github.com/rafaelbandeira3/uniqush-push/rest"
-	"github.com/uniqush/log"
 	"net/http"
 	"os"
 )
 
 type RestfulApi struct {
-	router        *mux.Router
-	loggers       []log.Logger
-	legacyRestApi *RestAPI
-	db            MySqlPushDb
+	router *mux.Router
+	db     MySqlPushDb
 }
 
-func NewRestfulApi(db MySqlPushDb, loggers []log.Logger, legacyRestApi *RestAPI) *RestfulApi {
+func NewRestfulApi(db MySqlPushDb) *RestfulApi {
 	api := new(RestfulApi)
-
-	api.loggers = loggers
 
 	api.router = mux.NewRouter()
 	api.AddRoute("POST", "/push_service_providers", api.AddPushServiceProvider)
@@ -32,14 +27,17 @@ func NewRestfulApi(db MySqlPushDb, loggers []log.Logger, legacyRestApi *RestAPI)
 	api.AddRoute("DELETE", "/subscribers/{subscription_alias}", RemoveDeliveryPointFromService)
 	api.AddRoute("POST", "/push_notifications", api.PushNotification)
 
-	api.legacyRestApi = legacyRestApi
 	api.db = db
 
 	return api
 }
 
 func (r *RestfulApi) Run(addr string, stopChan chan<- bool) {
-	http.ListenAndServe(addr, r.router)
+	err := http.ListenAndServe(addr, r.router)
+	if err != nil {
+		fmt.Println(err)
+	}
+	stopChan <- true
 }
 
 /* Routes */
@@ -86,12 +84,6 @@ func (rest *RestfulApi) AddPushServiceProvider(w http.ResponseWriter, r *http.Re
 }
 
 func (rest *RestfulApi) RemovePushServiceProvider(w http.ResponseWriter, r *http.Request) {
-	//TODO this is not working
-	vars := mux.Vars(r)
-	alias := vars["service_alias"]
-	service_type := vars["service_type"]
-
-	rest.removePushServiceProviderOnLegacy(alias, service_type, w, r)
 }
 
 func (rest *RestfulApi) AddDeliveryPointToService(w http.ResponseWriter, r *http.Request) {
@@ -196,24 +188,6 @@ func buildNotification(resource *PushNotificationResource) *push.Notification {
 		notie.Data[k] = v
 	}
 	return notie
-}
-
-/* Legacy integration */
-
-func (rest *RestfulApi) pushNotificationOnLegacy(pushNotification PushNotificationResource, w http.ResponseWriter, r *http.Request) {
-	rest.legacyRestApi.pushNotification(UniquePushNotificationId(), pushNotification.ToKeyValue(), make(map[string][]string, 0), rest.legacyRestApi.loggers[LOGGER_PUSH], r.RemoteAddr)
-}
-
-func (rest *RestfulApi) subscribeOnLegacyApi(subs SubscriptionResource, w http.ResponseWriter, r *http.Request) {
-	rest.legacyRestApi.changeSubscription(subs.ToKeyValue(), rest.legacyRestApi.loggers[LOGGER_SUB], r.RemoteAddr, true)
-}
-
-func (rest *RestfulApi) addPushServiceProviderOnLegacy(serv PushServiceProviderResource, w http.ResponseWriter, r *http.Request) {
-	rest.legacyRestApi.changePushServiceProvider(serv.ToKeyValue(), rest.legacyRestApi.loggers[LOGGER_ADDPSP], r.RemoteAddr, true)
-}
-
-func (rest *RestfulApi) removePushServiceProviderOnLegacy(alias, service_type string, w http.ResponseWriter, r *http.Request) {
-
 }
 
 /* Utils */
