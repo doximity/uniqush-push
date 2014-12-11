@@ -116,13 +116,15 @@ func RemoveDeliveryPointFromService(w http.ResponseWriter, r *http.Request) {
 }
 
 func (rest *RestfulApi) PushNotification(w http.ResponseWriter, r *http.Request) {
+	var jsonError JsonError
+	finished := make(chan bool)
 	resource := new(PushNotificationResource)
 	readJson(r, resource)
 
 	service, err := rest.db.FindServiceByAlias(resource.ServiceAlias)
 	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
-		jsonError := JsonError{Error: fmt.Sprintf("Service %v not found", resource.ServiceAlias), GoError: err.Error()}
+		jsonError = JsonError{Error: fmt.Sprintf("Service %v not found", resource.ServiceAlias), GoError: err.Error()}
 		respondJson(w, jsonError)
 		return
 	}
@@ -130,7 +132,7 @@ func (rest *RestfulApi) PushNotification(w http.ResponseWriter, r *http.Request)
 	subscriptions, err := rest.db.FindAllSubscriptionsByAlias(resource.SubscriberAlias)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		jsonError := JsonError{Error: fmt.Sprintf("Can't load subscriptions for %v", resource.SubscriberAlias), GoError: err.Error()}
+		jsonError = JsonError{Error: fmt.Sprintf("Can't load subscriptions for %v", resource.SubscriberAlias), GoError: err.Error()}
 		respondJson(w, jsonError)
 		return
 	}
@@ -138,7 +140,7 @@ func (rest *RestfulApi) PushNotification(w http.ResponseWriter, r *http.Request)
 	err = rest.db.FindPushServiceProvidersFor(&service)
 	if err != nil {
 		w.WriteHeader(422)
-		jsonError := JsonError{Error: fmt.Sprintf("Can't find push service providers for %v", resource.ServiceAlias), GoError: err.Error()}
+		jsonError = JsonError{Error: fmt.Sprintf("Can't find push service providers for %v", resource.ServiceAlias), GoError: err.Error()}
 		respondJson(w, jsonError)
 	}
 
@@ -154,7 +156,7 @@ func (rest *RestfulApi) PushNotification(w http.ResponseWriter, r *http.Request)
 		psp, err := psm.BuildPushServiceProviderFromMap(pushServiceProvider.ToKeyValue())
 		if err != nil {
 			w.WriteHeader(422)
-			jsonError := JsonError{Error: fmt.Sprintf("Can't initialize push service provider %v for %v", pushServiceProvider.Id, service.Alias), GoError: err.Error()}
+			jsonError = JsonError{Error: fmt.Sprintf("Can't initialize push service provider %v for %v", pushServiceProvider.Id, service.Alias), GoError: err.Error()}
 			respondJson(w, jsonError)
 			return
 		}
@@ -162,7 +164,7 @@ func (rest *RestfulApi) PushNotification(w http.ResponseWriter, r *http.Request)
 		deliveryPoint, err := psm.BuildDeliveryPointFromMap(subs.ToKeyValue())
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			jsonError := JsonError{Error: fmt.Sprintf("Can't initialize delivery point for subscription %v", subs.Id), GoError: err.Error()}
+			jsonError = JsonError{Error: fmt.Sprintf("Can't initialize delivery point for subscription %v", subs.Id), GoError: err.Error()}
 			respondJson(w, jsonError)
 			return
 		}
@@ -171,15 +173,29 @@ func (rest *RestfulApi) PushNotification(w http.ResponseWriter, r *http.Request)
 		pushResults := make(chan *push.PushResult)
 
 		go func() {
-			for _ = range pushResults {
+			jsonError := JsonError{}
+			success := true
+			for result := range pushResults {
+				if result.IsError() {
+					if success {
+						success = false
+					}
+					jsonError.AddError(result.Error())
+				}
 			}
+			finished <- success
 		}()
 		go func() { psm.Push(psp, deliveryPoints, pushResults, notification) }()
 		deliveryPoints <- deliveryPoint
 		close(deliveryPoints)
 	}
 
-	respondJson(w, resource)
+	if <-finished {
+		respondJson(w, resource)
+	} else {
+		w.WriteHeader(http.StatusInternalServerError)
+		respondJson(w, jsonError)
+	}
 }
 
 func buildNotification(resource *PushNotificationResource) *push.Notification {
