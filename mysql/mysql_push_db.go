@@ -2,6 +2,7 @@ package mysql
 
 import "database/sql"
 import _ "github.com/go-sql-driver/mysql"
+import "fmt"
 
 type MySqlPushDb struct {
 	db *sql.DB
@@ -64,6 +65,14 @@ func (psp PushServiceProvider) ToKeyValue() map[string]string {
 		m[translateAccessKey(k)] = v
 	}
 	return m
+}
+
+func (psp PushServiceProvider) String() string {
+	str := fmt.Sprintf("Id=%v Type=%v", psp.Id, psp.Type)
+	for k, v := range psp.AccessKeys {
+		str = fmt.Sprintf("%v AccessKey.%v=%v", str, k, v[:25])
+	}
+	return str
 }
 
 func translateAccessKey(column string) string {
