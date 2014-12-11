@@ -137,6 +137,13 @@ func (rest *RestfulApi) PushNotification(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	if len(subscriptions) == 0 {
+		w.WriteHeader(http.StatusNotFound)
+		jsonError = JsonError{Error: fmt.Sprintf("No subscriptions for %v in %v", resource.SubscriberAlias, service.Alias)}
+		respondJson(w, jsonError)
+		return
+	}
+
 	err = rest.db.FindPushServiceProvidersFor(&service)
 	if err != nil {
 		w.WriteHeader(422)
