@@ -172,6 +172,21 @@ func (db *MySqlPushDb) FindServiceByAlias(alias string) (Service, error) {
 	return service, err
 }
 
+func (db *MySqlPushDb) UpdateSubscriptionDeviceKey(id int64, deviceKey string) error {
+	ret, err := db.db.Exec("UPDATE subscriptions SET device_key = ? WHERE id = ?", id, deviceKey)
+	log("UpdateSubscription(%v) %v", id, ret)
+	return err
+}
+
+func log(str string, st ...interface{}) {
+	fmt.Println("[db]", fmt.Sprintf(str, st...))
+}
+
+func (db *MySqlPushDb) DeleteSubscriptionByDeviceKey(alias string, deviceKey string) error {
+	_, err := db.db.Exec("DELETE FROM subscriptions WHERE alias = ? AND device_key = ?", alias, deviceKey)
+	return err
+}
+
 func (db *MySqlPushDb) FindAllSubscriptionsByAliasAndServiceId(alias string, serviceId int64) ([]Subscription, error) {
 	results := make([]Subscription, 0, 10)
 

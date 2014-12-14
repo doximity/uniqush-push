@@ -1,7 +1,6 @@
-package main
+package http
 
 import (
-	"encoding/json"
 	"fmt"
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
@@ -10,11 +9,13 @@ import (
 	. "github.com/rafaelbandeira3/uniqush-push/rest"
 	"net/http"
 	"os"
+	"strconv"
 )
 
 type RestfulApi struct {
 	router *mux.Router
 	db     MySqlPushDb
+	SubscriptionsApi
 }
 
 func NewRestfulApi(db MySqlPushDb) *RestfulApi {
@@ -24,10 +25,11 @@ func NewRestfulApi(db MySqlPushDb) *RestfulApi {
 	api.AddRoute("POST", "/push_service_providers", api.AddPushServiceProvider)
 	api.AddRoute("DELETE", "/push_service_providers/{service_alias}/{service_type}", api.RemovePushServiceProvider)
 	api.AddRoute("POST", "/subscribers", api.AddDeliveryPointToService)
-	api.AddRoute("DELETE", "/subscribers/{subscription_alias}", RemoveDeliveryPointFromService)
+	api.AddRoute("DELETE", "/subscribers", api.RemoveDeliveryPointFromService)
 	api.AddRoute("POST", "/push_notifications", api.PushNotification)
 
 	api.db = db
+	api.SubscriptionsApi.db = db
 
 	return api
 }
@@ -38,6 +40,10 @@ func (r *RestfulApi) Run(addr string, stopChan chan<- bool) {
 		fmt.Println(err)
 	}
 	stopChan <- true
+}
+
+func (r RestfulApi) log(str string, st ...interface{}) {
+	fmt.Println(fmt.Sprintf(str, st...))
 }
 
 /* Routes */
@@ -86,35 +92,6 @@ func (rest *RestfulApi) AddPushServiceProvider(w http.ResponseWriter, r *http.Re
 func (rest *RestfulApi) RemovePushServiceProvider(w http.ResponseWriter, r *http.Request) {
 }
 
-func (rest *RestfulApi) AddDeliveryPointToService(w http.ResponseWriter, r *http.Request) {
-	resource := new(SubscriptionResource)
-	readJson(r, resource)
-
-	service, err := rest.db.FindServiceByAlias(resource.ServiceAlias)
-	if err != nil {
-		w.WriteHeader(http.StatusNotFound)
-		jsonError := JsonError{Error: fmt.Sprintf("Service %v not found", resource.ServiceAlias), GoError: err.Error()}
-		respondJson(w, jsonError)
-		return
-	}
-
-	id, err := rest.db.UpsertSubscriptionFor(service, resource.Alias, resource.PushServiceProviderType, resource.DeviceKey)
-	if err != nil {
-		w.WriteHeader(422)
-		jsonError := JsonError{Error: "Can't create subscription", GoError: err.Error()}
-		respondJson(w, jsonError)
-		return
-	}
-
-	resource.Id = id
-
-	respondJson(w, resource)
-}
-
-func RemoveDeliveryPointFromService(w http.ResponseWriter, r *http.Request) {
-
-}
-
 func (rest *RestfulApi) PushNotification(w http.ResponseWriter, r *http.Request) {
 	var jsonError JsonError
 	finished := make(chan bool)
@@ -144,6 +121,8 @@ func (rest *RestfulApi) PushNotification(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	fmt.Println("Subs", len(subscriptions))
+
 	err = rest.db.FindPushServiceProvidersFor(&service)
 	if err != nil {
 		w.WriteHeader(422)
@@ -157,6 +136,7 @@ func (rest *RestfulApi) PushNotification(w http.ResponseWriter, r *http.Request)
 		pushServiceProvider, found := service.ProviderOfType(subs.PushServiceProviderType)
 
 		if !found {
+			rest.log("Can't push to %v. No %v provider for %v.", subs.Alias, subs.PushServiceProviderType, service.Alias)
 			continue
 		}
 
@@ -175,23 +155,22 @@ func (rest *RestfulApi) PushNotification(w http.ResponseWriter, r *http.Request)
 			respondJson(w, jsonError)
 			return
 		}
+		deliveryPoint.VolatileData["subscription_id"] = strconv.Itoa(int(subs.Id))
 
-		deliveryPoints := make(chan *push.DeliveryPoint)
-		pushResults := make(chan *push.PushResult)
+		be := push.NewBackend(rest.db)
+		results := be.Push(psp, notification, deliveryPoint)
 
 		go func() {
 			success := true
-			for result := range pushResults {
+			for result := range results {
 				if result.IsError() {
 					success = false
 					jsonError.AddError(result.Error())
+					continue
 				}
 			}
 			finished <- success
 		}()
-		go func() { psm.Push(psp, deliveryPoints, pushResults, notification) }()
-		deliveryPoints <- deliveryPoint
-		close(deliveryPoints)
 	}
 
 	if <-finished {
@@ -208,24 +187,6 @@ func buildNotification(resource *PushNotificationResource) *push.Notification {
 		notie.Data[k] = v
 	}
 	return notie
-}
-
-/* Utils */
-
-func respondJson(w http.ResponseWriter, obj interface{}) {
-	w.Header().Set("Content-Type", "application/json; encoding=utf8")
-
-	e := json.NewEncoder(w)
-	if err := e.Encode(obj); err != nil {
-		panic(err)
-	}
-}
-
-func readJson(r *http.Request, obj interface{}) {
-	d := json.NewDecoder(r.Body)
-	if err := d.Decode(obj); err != nil {
-		panic(err)
-	}
 }
 
 func (r *RestfulApi) WithMiddleware(h http.Handler) http.Handler {

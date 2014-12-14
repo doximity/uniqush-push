@@ -20,6 +20,7 @@ package main
 import (
 	"code.google.com/p/goconf/conf"
 	"fmt"
+	. "github.com/rafaelbandeira3/uniqush-push/http"
 	"github.com/rafaelbandeira3/uniqush-push/mysql"
 	. "github.com/uniqush/log"
 	. "github.com/uniqush/uniqush-push/db"
