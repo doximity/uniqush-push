@@ -6,6 +6,7 @@ type SubscriptionResource struct {
 	PushServiceProviderType string `json:"push_service_provider_type"`
 	ServiceAlias            string `json:"service_alias"`
 	DeviceKey               string `json:"device_key"`
+	Enabled                 bool   `json:"enabled"`
 }
 
 func (subs SubscriptionResource) ToKeyValue() map[string]string {

@@ -108,6 +108,7 @@ type Subscription struct {
 	ServiceId               int64  `db:"service_id"`
 	PushServiceProviderType string `db:"push_service_provider_type"`
 	DeviceKey               string `db:"device_key"`
+	Enabled                 bool   `db:"enabled"`
 	Service                 *Service
 }
 
@@ -182,6 +183,40 @@ func log(str string, st ...interface{}) {
 	fmt.Println("[db]", fmt.Sprintf(str, st...))
 }
 
+type SqlResult interface {
+	Scan(dest ...interface{}) error
+}
+
+func ScanSubscription(scanner SqlResult) (*Subscription, error) {
+	subs := new(Subscription)
+	err := scanner.Scan(&subs.Id, &subs.ServiceId, &subs.Alias, &subs.PushServiceProviderType, &subs.DeviceKey, &subs.Enabled)
+
+	return subs, err
+}
+
+func ScanService(scanner SqlResult) (*Service, error) {
+	serv := new(Service)
+	err := scanner.Scan(&serv.Id, &serv.Alias)
+
+	return serv, err
+}
+
+func (db *MySqlPushDb) FindSubscription(id int64) (*Subscription, error) {
+	subs, err := ScanSubscription(db.db.QueryRow("SELECT * FROM subscriptions WHERE id = ?", id))
+	if err == nil {
+		service, err := ScanService(db.db.QueryRow("SELECT * FROM services WHERE id = ?", subs.ServiceId))
+		if err == nil {
+			subs.Service = service
+		}
+	}
+	return subs, err
+}
+
+func (db *MySqlPushDb) UpdateSubscription(id int64, enabled bool) error {
+	_, err := db.db.Exec("UPDATE subscriptions SET enabled = ? WHERE id = ?", enabled, id)
+	return err
+}
+
 func (db *MySqlPushDb) DeleteSubscriptionByDeviceKey(alias string, deviceKey string) error {
 	_, err := db.db.Exec("DELETE FROM subscriptions WHERE alias = ? AND device_key = ?", alias, deviceKey)
 	return err
@@ -197,8 +232,7 @@ func (db *MySqlPushDb) FindAllSubscriptionsByAliasAndServiceId(alias string, ser
 	defer rows.Close()
 
 	for rows.Next() {
-		subs := new(Subscription)
-		err = rows.Scan(&subs.Id, &subs.ServiceId, &subs.Alias, &subs.PushServiceProviderType, &subs.DeviceKey)
+		subs, err := ScanSubscription(rows)
 		if err != nil {
 			return results, err
 		}
