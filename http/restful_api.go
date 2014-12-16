@@ -26,6 +26,7 @@ func NewRestfulApi(db MySqlPushDb) *RestfulApi {
 	api.AddRoute("DELETE", "/push_service_providers/{service_alias}/{service_type}", api.RemovePushServiceProvider)
 	api.AddRoute("POST", "/subscribers", api.AddDeliveryPointToService)
 	api.AddRoute("PATCH", "/subscribers/{id}", api.UpdateDeliveryPoint)
+	api.AddRoute("PUT", "/subscribers/{id}", api.UpdateDeliveryPoint)
 	api.AddRoute("DELETE", "/subscribers", api.RemoveDeliveryPointFromService)
 	api.AddRoute("POST", "/push_notifications", api.PushNotification)
 
