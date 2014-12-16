@@ -109,16 +109,18 @@ func GetSubscriptionResource(r *http.Request) (*rest.SubscriptionResource, error
 
 	fmt.Println(parsed)
 
-	enabled, ok := parsed["enabled"].(bool)
-	if !ok {
-		enabledInt, ok := parsed["enabled"].(float64)
-
+	if parsed["enabled"] != nil {
+		enabled, ok := parsed["enabled"].(bool)
 		if !ok {
-			return resource, fmt.Errorf("Invalid value for 'enabled'")
+			enabledInt, ok := parsed["enabled"].(float64)
+
+			if !ok {
+				return resource, fmt.Errorf("Invalid value for 'enabled'")
+			}
+			enabled = enabledInt != 0
 		}
-		enabled = enabledInt != 0
+		parsed["enabled"] = enabled
 	}
-	parsed["enabled"] = enabled
 
 	raw, err := json.Marshal(parsed)
 	if err != nil {
