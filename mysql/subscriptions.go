@@ -32,7 +32,7 @@ func (subs Subscription) ToKeyValue() map[string]string {
 func (db *MySqlPushDb) UpsertSubscription(subs Subscription) (int64, error) {
 	var id int64
 
-	values := []interface{}{subs.ServiceId, subs.DeviceKey, subs.Alias, subs.PushServiceProviderType, subs.SubscriptionKey, subs.Enabled}
+	values := []interface{}{subs.Service.Id, subs.DeviceKey, subs.Alias, subs.PushServiceProviderType, subs.SubscriptionKey, subs.Enabled}
 
 	err := db.db.QueryRow(findSubscriptionByDeviceKey, subs.DeviceKey).Scan(&id)
 
