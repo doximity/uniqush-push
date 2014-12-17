@@ -6,21 +6,27 @@ import "github.com/rafaelbandeira3/uniqush-push/mysql"
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/gorilla/mux"
-	"strconv"
 )
 
 type SubscriptionsApi struct {
 	db mysql.MySqlPushDb
 }
 
-func (api *SubscriptionsApi) AddDeliveryPointToService(w http.ResponseWriter, r *http.Request) {
-	resource := MustGetSubscriptionResource(w, r)
-	if resource == nil {
-		return
-	}
+func MapToSubscription(resource *rest.SubscriptionResource) *mysql.Subscription {
+	subs := new(mysql.Subscription)
+	subs.Id = resource.Id
+	subs.DeviceKey = resource.DeviceKey
+	subs.Alias = resource.Alias
+	subs.PushServiceProviderType = resource.PushServiceProviderType
+	subs.SubscriptionKey = resource.SubscriptionKey
+	subs.Enabled = resource.Enabled
+	return subs
+}
 
-	service, err := api.db.FindServiceByAlias(resource.ServiceAlias)
+func (api *SubscriptionsApi) UpsertDeliveryPoint(w http.ResponseWriter, r *http.Request) {
+	resource := MustGetSubscriptionResource(w, r)
+
+	serv, err := api.db.FindServiceByAlias(resource.ServiceAlias)
 	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
 		jsonError := rest.JsonError{Error: fmt.Sprintf("Service %v not found", resource.ServiceAlias), GoError: err.Error()}
@@ -28,48 +34,9 @@ func (api *SubscriptionsApi) AddDeliveryPointToService(w http.ResponseWriter, r 
 		return
 	}
 
-	id, err := api.db.UpsertSubscriptionFor(service, resource.Alias, resource.PushServiceProviderType, resource.DeviceKey)
-	if err != nil {
-		w.WriteHeader(422)
-		jsonError := rest.JsonError{Error: "Can't create subscription", GoError: err.Error()}
-		respondJson(w, jsonError)
-		return
-	}
-
-	err = api.UpdateResourceState(id, resource)
-	if err != nil {
-		w.WriteHeader(500)
-		jsonError := rest.JsonError{Error: "Updated but can't select subscription", GoError: err.Error()}
-		respondJson(w, jsonError)
-		return
-	}
-
-	respondJson(w, resource)
-}
-
-func (api *SubscriptionsApi) RemoveDeliveryPointFromService(w http.ResponseWriter, r *http.Request) {
-	resource := MustGetSubscriptionResource(w, r)
-	if resource == nil {
-		return
-	}
-
-	err := api.db.DeleteSubscriptionByDeviceKey(resource.Alias, resource.DeviceKey)
-	if err != nil {
-		w.WriteHeader(422)
-		jsonError := rest.JsonError{Error: "Can't destroy subscription", GoError: err.Error()}
-		respondJson(w, jsonError)
-		return
-	}
-
-	w.WriteHeader(204)
-}
-
-func (api *SubscriptionsApi) UpdateDeliveryPoint(w http.ResponseWriter, r *http.Request) {
-	resource := MustGetSubscriptionResource(w, r)
-	vars := mux.Vars(r)
-
-	id, _ := strconv.Atoi(vars["id"])
-	err := api.db.UpdateSubscription(int64(id), resource.Enabled)
+	subs := MapToSubscription(resource)
+	subs.Service = &serv
+	id, err := api.db.UpsertSubscription(*subs)
 	if err != nil {
 		w.WriteHeader(422)
 		jsonError := rest.JsonError{Error: "Can't update subscription", GoError: err.Error()}
@@ -77,7 +44,7 @@ func (api *SubscriptionsApi) UpdateDeliveryPoint(w http.ResponseWriter, r *http.
 		return
 	}
 
-	err = api.UpdateResourceState(int64(id), resource)
+	err = api.UpdateResourceState(id, resource)
 	if err != nil {
 		w.WriteHeader(500)
 		jsonError := rest.JsonError{Error: "Updated but can't select subscription", GoError: err.Error()}
@@ -94,20 +61,19 @@ func (api *SubscriptionsApi) UpdateResourceState(id int64, resource *rest.Subscr
 		return err
 	}
 	resource.Id = subs.Id
+	resource.DeviceKey = subs.DeviceKey
 	resource.Alias = subs.Alias
 	resource.PushServiceProviderType = subs.PushServiceProviderType
-	resource.DeviceKey = subs.DeviceKey
+	resource.SubscriptionKey = subs.SubscriptionKey
 	resource.Enabled = subs.Enabled
 	resource.ServiceAlias = subs.Service.Alias
 	return err
 }
 
-func GetSubscriptionResource(r *http.Request) (*rest.SubscriptionResource, error) {
+func ParseSubscriptionResource(r *http.Request) (*rest.SubscriptionResource, error) {
 	resource := new(rest.SubscriptionResource)
 	var parsed map[string]interface{}
 	readJson(r, &parsed)
-
-	fmt.Println(parsed)
 
 	if parsed["enabled"] != nil {
 		enabled, ok := parsed["enabled"].(bool)
@@ -136,7 +102,7 @@ func GetSubscriptionResource(r *http.Request) (*rest.SubscriptionResource, error
 }
 
 func MustGetSubscriptionResource(w http.ResponseWriter, r *http.Request) *rest.SubscriptionResource {
-	resource, err := GetSubscriptionResource(r)
+	resource, err := ParseSubscriptionResource(r)
 	if err != nil {
 		w.WriteHeader(422)
 		jsonError := rest.JsonError{Error: "Can't parse subscription", GoError: err.Error()}

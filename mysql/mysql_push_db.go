@@ -3,22 +3,21 @@ package mysql
 import "database/sql"
 import _ "github.com/go-sql-driver/mysql"
 import "fmt"
+import "reflect"
 
 type MySqlPushDb struct {
 	db *sql.DB
 }
 
 const (
-	insertSubscription        = `INSERT INTO subscriptions (service_id, alias, push_service_provider_type, device_key) VALUES (?, ?, ?, ?)`
 	insertService             = `INSERT INTO services (alias) VALUES (?)`
 	insertPushServiceProvider = `INSERT INTO push_service_providers (service_id, type) VALUES (?, ?)`
 	insertApnsAccessKeys      = `INSERT INTO apns_access_keys (push_service_provider_id, certificate_pem, key_pem) VALUES (?, ?, ?)`
 	insertGcmAccessKeys       = `INSERT INTO gcm_access_keys (push_service_provider_id, project, api_key) VALUES (?, ?, ?)`
 
-	selectSubscriptions         = `SELECT * FROM subscriptions WHERE alias = ? AND service_id = ? AND enabled = true`
-	findSubscriptionByDeviceKey = `SELECT id FROM subscriptions WHERE device_key = ?`
-	selectService               = `SELECT * FROM services WHERE alias = ?`
-	selectPushServiceProviders  = `SELECT psp.id, psp.type, psp.service_id, gcm.project, gcm.api_key, apns.certificate_pem, apns.key_pem FROM push_service_providers AS psp LEFT JOIN gcm_access_keys AS gcm ON gcm.push_service_provider_id = psp.id LEFT JOIN apns_access_keys AS apns ON apns.push_service_provider_id = psp.id WHERE psp.service_id = ?`
+	selectSubscriptions        = `SELECT * FROM subscriptions WHERE alias = ? AND service_id = ? AND enabled = true`
+	selectService              = `SELECT * FROM services WHERE alias = ?`
+	selectPushServiceProviders = `SELECT psp.id, psp.type, psp.service_id, gcm.project, gcm.api_key, apns.certificate_pem, apns.key_pem FROM push_service_providers AS psp LEFT JOIN gcm_access_keys AS gcm ON gcm.push_service_provider_id = psp.id LEFT JOIN apns_access_keys AS apns ON apns.push_service_provider_id = psp.id WHERE psp.service_id = ?`
 
 	selectSubscriptionsForPushServiceProvider = `SELECT * FROM subscriptions WHERE service_id = ? AND push_service_provider_type = ?`
 )
@@ -91,7 +90,7 @@ func translateAccessKey(column string) string {
 	}
 }
 
-func translateDeviceKey(providerType string) string {
+func translateSubscriptionKey(providerType string) string {
 	switch providerType {
 	case "gcm":
 		return "regid"
@@ -100,25 +99,6 @@ func translateDeviceKey(providerType string) string {
 	default:
 		return ""
 	}
-}
-
-type Subscription struct {
-	Id                      int64  `db:"id"`
-	Alias                   string `db:"alias"`
-	ServiceId               int64  `db:"service_id"`
-	PushServiceProviderType string `db:"push_service_provider_type"`
-	DeviceKey               string `db:"device_key"`
-	Enabled                 bool   `db:"enabled"`
-	Service                 *Service
-}
-
-func (subs Subscription) ToKeyValue() map[string]string {
-	keys := make(map[string]string)
-	keys["pushservicetype"] = subs.PushServiceProviderType
-	keys["subscriber"] = subs.Alias
-	keys["service"] = "any"
-	keys[translateDeviceKey(subs.PushServiceProviderType)] = subs.DeviceKey
-	return keys
 }
 
 func (db *MySqlPushDb) FindPushServiceProvidersFor(service *Service) error {
@@ -173,7 +153,7 @@ func (db *MySqlPushDb) FindServiceByAlias(alias string) (Service, error) {
 	return service, err
 }
 
-func (db *MySqlPushDb) UpdateSubscriptionDeviceKey(id int64, deviceKey string) error {
+func (db *MySqlPushDb) UpdateSubscriptionKey(id int64, deviceKey string) error {
 	ret, err := db.db.Exec("UPDATE subscriptions SET device_key = ? WHERE id = ?", id, deviceKey)
 	log("UpdateSubscription(%v) %v", id, ret)
 	return err
@@ -189,7 +169,7 @@ type SqlResult interface {
 
 func ScanSubscription(scanner SqlResult) (*Subscription, error) {
 	subs := new(Subscription)
-	err := scanner.Scan(&subs.Id, &subs.ServiceId, &subs.Alias, &subs.PushServiceProviderType, &subs.DeviceKey, &subs.Enabled)
+	err := scanner.Scan(&subs.Id, &subs.ServiceId, &subs.DeviceKey, &subs.Alias, &subs.PushServiceProviderType, &subs.SubscriptionKey, &subs.Enabled)
 
 	return subs, err
 }

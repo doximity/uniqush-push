@@ -82,7 +82,7 @@ func (be Backend) processError(res *PushResult) *PushResult {
 func (be Backend) updateSubscription(deliveryPoint *DeliveryPoint) error {
 	id, err := strconv.Atoi(deliveryPoint.VolatileData["subscription_id"])
 	if err == nil {
-		err = be.db.UpdateSubscriptionDeviceKey(int64(id), deliveryPoint.VolatileData["regid"])
+		err = be.db.UpdateSubscriptionKey(int64(id), deliveryPoint.VolatileData["regid"])
 	}
 	return err
 }

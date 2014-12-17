@@ -5,7 +5,7 @@ create table subscriptions (
   `service_id` int,
   `alias` varchar(40),
   `push_service_provider_type` varchar(10),
-  `device_key` varchar(240)
+  `device_key` varchar(240) NOT NULL
 );
 
 
