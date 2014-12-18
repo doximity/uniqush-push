@@ -130,7 +130,6 @@ func (rest *RestfulApi) PushNotification(w http.ResponseWriter, r *http.Request)
 	}
 
 	psm := push.GetPushServiceManager()
-	notification := buildNotification(resource)
 	for _, subs := range subscriptions {
 		pushServiceProvider, found := service.ProviderOfType(subs.PushServiceProviderType)
 
@@ -138,6 +137,8 @@ func (rest *RestfulApi) PushNotification(w http.ResponseWriter, r *http.Request)
 			rest.log("Can't push to %v. No %v provider for %v.", subs.Alias, subs.PushServiceProviderType, service.Alias)
 			continue
 		}
+
+		notification := buildNotification(resource.ContentForProvider(subs.PushServiceProviderType))
 
 		psp, err := psm.BuildPushServiceProviderFromMap(pushServiceProvider.ToKeyValue())
 		if err != nil {
@@ -180,10 +181,18 @@ func (rest *RestfulApi) PushNotification(w http.ResponseWriter, r *http.Request)
 	}
 }
 
-func buildNotification(resource *PushNotificationResource) *push.Notification {
+func buildNotification(content map[string]interface{}) *push.Notification {
 	notie := push.NewEmptyNotification()
-	for k, v := range resource.Content {
-		notie.Data[k] = v
+	for k, v := range content {
+		if v != nil {
+			switch v.(type) {
+			case string:
+				notie.Data[k] = v.(string)
+			case int64:
+				str := strconv.Itoa(int(v.(int64)))
+				notie.Data[k] = str
+			}
+		}
 	}
 	return notie
 }
