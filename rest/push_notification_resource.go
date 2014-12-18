@@ -32,5 +32,9 @@ func (pn PushNotificationResource) ToKeyValue() map[string]string {
 }
 
 func (pn PushNotificationResource) ContentForProvider(providerType string) map[string]interface{} {
-	return pn.Content[providerType].(map[string]interface{})
+	var content map[string]interface{}
+	if val := pn.Content[providerType]; val != nil {
+		content = val.(map[string]interface{})
+	}
+	return content
 }
