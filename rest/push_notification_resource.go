@@ -9,9 +9,9 @@ import (
 )
 
 type PushNotificationResource struct {
-	Content         map[string]string `json:"content"`
-	ServiceAlias    string            `json:"service_alias"`
-	SubscriberAlias string            `json:"subscriber_alias"`
+	Content           map[string]string      `json:"content"`
+	ServiceAlias      string                 `json:"service_alias"`
+	SubscriptionAlias string                 `json:"subscription_alias"`
 }
 
 func UniquePushNotificationId() string {
@@ -24,7 +24,7 @@ func UniquePushNotificationId() string {
 func (pn PushNotificationResource) ToKeyValue() map[string]string {
 	m := make(map[string]string, len(pn.Content)+2)
 	m["service"] = pn.ServiceAlias
-	m["subscriber"] = pn.SubscriberAlias
+	m["subscriber"] = pn.SubscriptionAlias
 	for k, v := range pn.Content {
 		m[k] = v
 	}
