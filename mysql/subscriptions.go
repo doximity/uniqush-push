@@ -40,7 +40,8 @@ func (db *MySqlPushDb) UpsertSubscription(subs Subscription) (int64, error) {
 		return db.insert(insertSubscription, values...)
 	}
 
-	setters := "service_id = ?, device_key = ?, alias = ?, push_service_provider_type = ?, subscription_key = ?"
+	values = append(values, id)
+	setters := "service_id = ?, device_key = ?, alias = ?, push_service_provider_type = ?, subscription_key = ?, enabled = ?"
 	stmt := fmt.Sprintf("UPDATE subscriptions SET %v WHERE id = ?", setters)
 
 	_, err = db.db.Exec(stmt, values...)
