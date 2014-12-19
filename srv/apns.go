@@ -775,7 +775,7 @@ func toAPNSPayload(n *Notification) ([]byte, error) {
 				aps["badge"] = b
 			}
 		case "category":
-			alert[k] = v
+			aps["category"] = v
 		case "sound":
 			aps["sound"] = v
 		case "content-available":
