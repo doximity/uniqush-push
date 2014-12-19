@@ -1,0 +1,6 @@
+
+-- +goose Up
+ALTER TABLE services ADD COLUMN sandbox BOOLEAN NOT NULL DEFAULT TRUE;
+
+-- +goose Down
+ALTER TABLE SERVICES DROP COLUMN sandbox;

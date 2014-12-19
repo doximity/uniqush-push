@@ -1,16 +1,22 @@
 package rest
 
 type PushServiceProviderResource struct {
-	Id     int64             `json:"id"`
-	Alias  string            `json:"alias"`
-	Type   string            `json:"type"`
-	Access map[string]string `json:"access"`
+	Id      int64             `json:"id"`
+	Alias   string            `json:"alias"`
+	Type    string            `json:"type"`
+	Sandbox bool              `json:"sandbox"`
+	Access  map[string]string `json:"access"`
 }
 
 func (serv PushServiceProviderResource) ToKeyValue() map[string]string {
 	m := make(map[string]string, 4)
 	m["service"] = serv.Alias
 	m["pushservicetype"] = serv.Type
+	if serv.Sandbox {
+		m["sandbox"] = "true"
+	} else {
+		m["sandbox"] = "false"
+	}
 	for k, v := range serv.ServiceAccessKeys() {
 		m[k] = v
 	}

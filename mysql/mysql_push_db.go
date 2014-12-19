@@ -10,7 +10,7 @@ type MySqlPushDb struct {
 }
 
 const (
-	insertService             = `INSERT INTO services (alias) VALUES (?)`
+	insertService             = `INSERT INTO services (alias, sandbox) VALUES (?, ?)`
 	insertPushServiceProvider = `INSERT INTO push_service_providers (service_id, type) VALUES (?, ?)`
 	insertApnsAccessKeys      = `INSERT INTO apns_access_keys (push_service_provider_id, certificate_pem, key_pem) VALUES (?, ?, ?)`
 	insertGcmAccessKeys       = `INSERT INTO gcm_access_keys (push_service_provider_id, project, api_key) VALUES (?, ?, ?)`
@@ -37,6 +37,7 @@ func NewMySqlPushDb(url string) (MySqlPushDb, error) {
 type Service struct {
 	Id        int64  `db:"id"`
 	Alias     string `db:"alias"`
+	Sandbox   bool   `db:"sandbox"`
 	Providers []PushServiceProvider
 }
 
@@ -61,6 +62,11 @@ func (psp PushServiceProvider) ToKeyValue() map[string]string {
 	m := make(map[string]string, 4)
 	m["service"] = psp.Service.Alias
 	m["pushservicetype"] = psp.Type
+	if psp.Service.Sandbox {
+		m["sandbox"] = "true"
+	} else {
+		m["sandbox"] = "false"
+	}
 	for k, v := range psp.AccessKeys {
 		m[translateAccessKey(k)] = v
 	}
@@ -146,11 +152,9 @@ func (db *MySqlPushDb) FindPushServiceProvidersFor(service *Service) error {
 }
 
 func (db *MySqlPushDb) FindServiceByAlias(alias string) (Service, error) {
-	var service Service
+	service, err := ScanService(db.db.QueryRow(selectService, alias))
 
-	err := db.db.QueryRow(selectService, alias).Scan(&service.Id, &service.Alias)
-
-	return service, err
+	return *service, err
 }
 
 func (db *MySqlPushDb) UpdateSubscriptionKey(id int64, deviceKey string) error {
@@ -176,7 +180,7 @@ func ScanSubscription(scanner SqlResult) (*Subscription, error) {
 
 func ScanService(scanner SqlResult) (*Service, error) {
 	serv := new(Service)
-	err := scanner.Scan(&serv.Id, &serv.Alias)
+	err := scanner.Scan(&serv.Id, &serv.Alias, &serv.Sandbox)
 
 	return serv, err
 }
@@ -237,15 +241,19 @@ func (db *MySqlPushDb) insert(stm string, values ...interface{}) (int64, error) 
 	return lastId, nil
 }
 
-func (db *MySqlPushDb) UpsertSubscriptionFor(service Service, alias string, serviceType string, deviceKey string) (int64, error) {
-	var id int64
-	err := db.db.QueryRow(findSubscriptionByDeviceKey, deviceKey).Scan(&id)
-
-	if err == sql.ErrNoRows {
-		return db.insert(insertSubscription, service.Id, alias, serviceType, deviceKey)
+func ColumnsFor(object interface{}) map[string]interface{} {
+	columns := make(map[string]interface{})
+	resourceValue := reflect.ValueOf(object)
+	elem := resourceValue.Elem()
+	for i := 0; i < elem.NumField(); i++ {
+		field := elem.Type().Field(i)
+		val := elem.Field(i)
+		if column := field.Tag.Get("db"); column != "" {
+			columns[column] = val.Interface()
+		}
 	}
 
-	return id, err
+	return columns
 }
 
 func (db *MySqlPushDb) InsertService(alias string) (int64, error) {
